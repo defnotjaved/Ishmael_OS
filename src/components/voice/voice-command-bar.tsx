@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { VoiceButton } from "./voice-button";
 
 type CommitPayload =
-  | { action: "add_transaction"; amount: number; merchant: string; note: string; categoryHint: string }
+  | { action: "add_transaction"; amount: number; merchant: string; note: string; categoryHint: string; type: "income" | "expense"; accountId?: string }
   | { action: "add_project"; name: string; description: string }
   | { action: "add_task"; title: string; priority: string; projectName?: string };
 
@@ -25,7 +25,6 @@ export function VoiceCommandBar({ className }: { className?: string }) {
 
     const data = await res.json() as { projectId?: string };
 
-    // Navigate to new project detail page after creating
     if (result.action === "add_project" && data.projectId) {
       router.push(`/projects/${data.projectId}`);
     } else {

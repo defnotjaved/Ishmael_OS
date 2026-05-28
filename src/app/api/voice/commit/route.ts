@@ -10,6 +10,7 @@ const TransactionPayload = z.object({
   note: z.string().max(500),
   categoryHint: z.string().max(100),
   type: z.enum(["income", "expense"]).default("income"),
+  accountId: z.string().uuid().optional(),
 });
 
 const ProjectPayload = z.object({
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
       merchant: data.merchant || null,
       note: data.note || null,
       category_id: categoryId,
+      account_id: data.accountId ?? null,
       date: new Date().toISOString().slice(0, 10),
     });
 
