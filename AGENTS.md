@@ -29,7 +29,7 @@ Goal → Roadmap → Milestones → Tasks/Habits → Evidence → Achievement
 
 ## ⚠️ Current Build State (read before writing any code)
 
-**Phases 1–11 are fully complete and deployed.** Do NOT re-implement anything below.
+**Phases 1–13 are fully complete and deployed.** Do NOT re-implement anything below.
 
 ### What exists
 
@@ -46,7 +46,11 @@ Goal → Roadmap → Milestones → Tasks/Habits → Evidence → Achievement
 | `/integrations` | ✅ Done | Connect/disconnect Google (Calendar + Gmail) and GitHub OAuth; shows live calendar events, receipt emails, assigned issues |
 | `/api/oauth/google` + `/callback` | ✅ Done | Full Google OAuth flow with AES-256-GCM token encryption |
 | `/api/oauth/github` + `/callback` | ✅ Done | Full GitHub OAuth flow |
+| `/reports` | ✅ Done | Monthly finance summary, category breakdown, goal progress, habit grid (30-day), tasks completed |
+| `/tasks` | ✅ Done | Task list with filter tabs (all/todo/in_progress/done), inline add form, optimistic toggle complete, delete |
+| `/habits` | ✅ Done | Habit tracker with 7-day weekly grid per habit, log/unlog per day, add/delete habits, streak recalculation |
 | `/auth/sign-in`, `/auth/sign-up` | ✅ Done | Supabase auth pages |
+| `/settings` | ✅ Done | Profile form (name, initials), sign out, danger zone. Updates `profiles` table. |
 | `/[...slug]` | ✅ Done | Coming-soon catch-all for unbuilt routes |
 
 ### Supabase tables (all with RLS on `owner_id = auth.uid()`)
@@ -152,191 +156,78 @@ Use ResponsiveContainer + the existing chart patterns in cashflow-chart.tsx / sp
 ```
 
 ### Nav — already wired
-`src/config/nav.ts` has `sidebarNav` and `mobileNav`. The `/reports` route is already in the list as `{ label: "Reports", href: "/reports", icon: "BarChart3" }`. Do not touch `nav.ts`.
+`src/config/nav.ts` has `sidebarNav` and `mobileNav`. All routes already appear in the nav list. Do not touch `nav.ts`.
 
 ---
 
-## Phase 12 — Reports & Analytics
+## Phase 15 — Calendar Page
 
-**This is the task for this session.** Build the `/reports` page. It must read real data from Supabase (no mock data). No new tables needed.
+**This is the task for this session.** Build the `/calendar` page. It shows the user's upcoming Google Calendar events in a clean list layout. The Google OAuth integration already exists — just consume it.
 
 ### Goal
 
-A single `/reports` page that gives the user a consolidated view of their financial health, goal progress, and habit consistency over time. Think "monthly review dashboard."
+A `/calendar` page that fetches and displays the user's upcoming calendar events using the existing `fetchUpcomingEvents` helper from `src/lib/integrations/google-calendar.ts`. If Google is not connected, show a prompt to connect.
+
+### What already exists
+
+- `src/lib/integrations/google-calendar.ts` — `fetchUpcomingEvents(userId, days?)` returns `CalendarEvent[]`
+- `CalendarEvent` type: `{ id, title, start, end, location?, htmlLink? }`
+- Google OAuth flow at `/api/oauth/google` — already wired
+- `src/lib/integrations/token-store.ts` — `getValidGoogleToken` handles refresh automatically
 
 ### Sections to build
 
-#### 1. Finance summary (top)
+#### 1. Header
+Page header: "Calendar" h1 with `Calendar` icon from lucide-react. Subtitle: "Your upcoming events from Google Calendar."
 
-Three stat cards in a row:
-- **Income this month** — sum of positive transactions this month
-- **Expenses this month** — sum of negative transactions (absolute value) this month
-- **Net savings** — income minus expenses (green if positive, red if negative)
+#### 2. Not connected state
+If Google is not connected (no token row for `google`), show an `EmptyState` (from `@/components/ui/empty-state`) with:
+- Icon: `Calendar`
+- Title: "Google Calendar not connected"
+- Description: "Connect your Google account to see upcoming events."
+- Action: link to `/integrations` with text "Connect Google"
 
-Below that, a **monthly net savings trend** bar chart (last 6 months): bars showing net = income − expenses per month. Use `var(--color-positive)` for positive bars and `var(--color-negative)` for negative bars. Each bar should show the month name (Jan, Feb…) on x-axis and net amount on y-axis. Use Recharts `BarChart`.
+#### 3. Events list
+If connected, call `fetchUpcomingEvents(user.id, 14)` (next 14 days). Display events in a card list:
+- Each event row: time range (formatted `h:mm a`), event title (bold), optional location (muted)
+- Group by day — show a date header (`"Today"`, `"Tomorrow"`, or `"Mon, Jun 2"` format) above each day's events
+- If `fetchUpcomingEvents` throws (token error), catch and show an EmptyState: "Could not load events. Try reconnecting Google."
+- If connected but zero events, show EmptyState: "No upcoming events in the next 14 days."
 
-#### 2. Top spending categories (this month)
+### How to check if Google is connected
 
-A horizontal bar list (not a chart — simpler): for each category with expenses this month, show:
-- Color dot
-- Category name
-- A `<Progress>` bar (0–100 based on share of total spending)
-- Amount on the right
-
-Show max 8 categories, sorted by amount descending.
-
-#### 3. Goal progress overview
-
-A list of all active goals (status ≠ "completed") showing:
-- Goal name
-- Status badge (`on_track` → positive, `at_risk` → warning, `behind` → negative, `completed` → neutral)
-- Progress bar (saved_amount / target_amount × 100, capped at 100)
-- `$saved / $target` label if target_amount is set, else just `In progress`
-- Days until target_date if set
-
-#### 4. Habit consistency (last 30 days)
-
-For each daily habit, show:
-- Habit name
-- Streak (🔥 N days — but no emoji unless user requests it, use `Flame` icon instead)
-- A 30-dot grid (5 columns × 6 rows) where each dot = one day, filled = completed that day, empty = missed
-
-To get completion data: query `habit_completions` for the last 30 days for all the user's habits.
-
-#### 5. Tasks completed this month
-
-A simple stat: "X tasks completed this month" + a small list of the last 5 completed tasks (title, completed_at date). Query `tasks` where `status = 'done'` and `completed_at >= first of this month`.
-
-### Data fetching strategy
-
-All data fetched in one server component (`src/app/reports/page.tsx`) using `Promise.all`. No client components needed except for charts (which must be `"use client"`).
+```ts
+const supabase = await createClient();
+const { data: integration } = await supabase
+  .from("integrations")
+  .select("id")
+  .eq("owner_id", user.id)
+  .eq("provider", "google")
+  .maybeSingle();
+const isConnected = !!integration;
+```
 
 ### Files to create
 
 ```
-src/app/reports/page.tsx                     — server component, fetches all data
-src/components/reports/finance-summary.tsx   — "use client" (contains BarChart)
-src/components/reports/category-breakdown.tsx — server-renderable (Progress bars, no chart lib)
-src/components/reports/goal-overview.tsx     — server-renderable
-src/components/reports/habit-grid.tsx        — server-renderable (30-dot grid via CSS)
-src/components/reports/tasks-summary.tsx     — server-renderable
+src/app/calendar/page.tsx          — server component, fetches events
+src/components/calendar/event-list.tsx — "use client" not needed; pure display component
 ```
-
-### Files to modify
-
-```
-src/lib/utils.ts                 — formatCurrency already exists, use it
-src/lib/supabase/types.ts        — no changes needed (all tables already typed)
-```
-
-Do NOT modify `src/config/nav.ts`, `src/app/page.tsx`, or any existing component.
-
-### Props shape for each component
-
-```ts
-// finance-summary.tsx
-type FinanceSummaryProps = {
-  incomeThisMonth: number;
-  expensesThisMonth: number; // positive value
-  netThisMonth: number;
-  monthlySeries: { month: string; net: number }[]; // last 6 months
-};
-
-// category-breakdown.tsx
-type CategoryBreakdownProps = {
-  categories: { id: string; name: string; color: string; amount: number; percent: number }[];
-};
-
-// goal-overview.tsx
-type GoalOverviewProps = {
-  goals: {
-    id: string;
-    name: string;
-    status: "on_track" | "at_risk" | "behind" | "completed";
-    savedAmount: number;
-    targetAmount: number | null;
-    targetDate: string | null;
-    progress: number; // 0–100
-  }[];
-};
-
-// habit-grid.tsx
-type HabitGridProps = {
-  habits: {
-    id: string;
-    name: string;
-    streak: number;
-    days: boolean[]; // length 30, index 0 = 30 days ago, index 29 = today
-  }[];
-};
-
-// tasks-summary.tsx
-type TasksSummaryProps = {
-  completedCount: number;
-  recentTasks: { id: string; title: string; completedAt: string }[];
-};
-```
-
-### Data queries to write in `page.tsx`
-
-```ts
-const today = new Date();
-const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1).toISOString().slice(0, 10);
-const thirtyDaysAgo = new Date(today.getTime() - 29 * 86400000).toISOString().slice(0, 10);
-
-const [
-  { data: rawTxMonth },      // transactions this month with category join
-  { data: rawTxSix },        // transactions last 6 months (amount + date only)
-  { data: rawGoals },        // all goals
-  { data: rawHabits },       // all daily habits
-  { data: rawCompletions },  // habit_completions last 30 days
-  { data: rawTasksDone },    // tasks done this month
-] = await Promise.all([
-  supabase.from("transactions")
-    .select("amount, category_id, categories(id, name, color)")
-    .gte("date", monthStart),
-  supabase.from("transactions")
-    .select("amount, date")
-    .gte("date", sixMonthsAgo),
-  supabase.from("goals").select("*").eq("owner_id", user.id),
-  supabase.from("habits").select("*").eq("owner_id", user.id).eq("cadence", "daily"),
-  supabase.from("habit_completions")
-    .select("habit_id, completed_on")
-    .eq("owner_id", user.id)
-    .gte("completed_on", thirtyDaysAgo),
-  supabase.from("tasks")
-    .select("id, title, completed_at")
-    .eq("owner_id", user.id)
-    .eq("status", "done")
-    .gte("completed_at", monthStart + "T00:00:00Z")
-    .order("completed_at", { ascending: false })
-    .limit(20),
-]);
-```
-
-Use the same `as unknown as RawType[]` cast for `rawTxMonth` due to nested select.
 
 ### Visual spec
 
-- Page header: "Reports" h1, subtitle "Monthly snapshot · [Month Year]"
-- Sections separated by `<section>` with a small uppercase heading (same `SectionHeading` pattern as dashboard — just do it inline with a `<h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-muted">`)
-- Cards use `<Card><CardContent>` from `@/components/ui/card`
-- Max width `max-w-4xl` on the outer wrapper
-- Responsive: stat cards in a `grid grid-cols-1 sm:grid-cols-3 gap-4`, everything else full-width
-- Habit grid dots: `size-2 rounded-full` — `bg-brand` for completed, `bg-line` for missed, laid out in a `grid grid-cols-[repeat(30,_minmax(0,_1fr))] gap-1`
+- Max width `max-w-2xl`
+- Day header: `text-xs font-semibold text-ink-muted uppercase tracking-wide py-2`
+- Event row: `rounded-xl border border-line bg-surface p-4` with flex layout
+  - Left: time range `text-xs text-ink-muted tabular-nums w-28 shrink-0`
+  - Center: title `text-sm font-medium text-ink`, location `text-xs text-ink-muted mt-0.5`
+  - Right (optional): external link icon linking to `event.htmlLink` (open in new tab, `aria-label="Open in Google Calendar"`)
+- Divider between day groups: use spacing only (no `<hr>`)
+- The `Calendar` icon is available in lucide-react — verify before use
 
-### Finance bar chart spec
+### Nav entry
 
-Use Recharts `BarChart` with `ResponsiveContainer width="100%" height={180}`. The bar fill should be dynamic per bar value: positive → `var(--color-positive)`, negative → `var(--color-negative)`. Use a Recharts `Cell` on each bar to apply per-bar color. Add a `Tooltip` using the existing `TooltipCard` / `TooltipRow` pattern from `@/components/dashboard/chart-tooltip`.
-
-### `formatCurrency` usage
-
-```ts
-import { formatCurrency } from "@/lib/utils";
-formatCurrency(1234.56) // → "$1,234.56"
-formatCurrency(-50)    // → "-$50.00"  — for net display, pass Math.abs() and add sign manually
-```
+`/calendar` is already listed in `src/config/nav.ts` — do not touch `nav.ts`.
 
 ---
 
@@ -345,18 +236,13 @@ formatCurrency(-50)    // → "-$50.00"  — for net display, pass Math.abs() an
 ```bash
 npx tsc --noEmit     # must exit 0
 npm run lint         # must exit 0, zero errors (warnings acceptable)
-npm run build        # must succeed, /reports must appear in the route list
+npm run build        # must succeed, /calendar must appear in the route list
 ```
 
 Then manually verify:
-- `/reports` loads without error when logged in
-- Redirects to `/auth/sign-in` when not logged in
-- Finance stat cards show correct values (positive income, positive expenses amount, colored net)
-- Monthly net bar chart renders with correct colors per bar
-- Category breakdown shows at least one category with a filled progress bar
-- Habit grid shows 30 dots per habit, filled/empty correctly
-- Goal list shows all active goals with progress bars
-- Tasks summary shows the completed count
+- `/calendar` renders without error (connected or not)
+- Not-connected state shows the EmptyState with link to `/integrations`
+- Events grouped by day with correct date headers
 
 ---
 
