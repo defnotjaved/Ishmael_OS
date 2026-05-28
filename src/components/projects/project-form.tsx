@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, FolderKanban, Rocket, Code2, BookOpen, Lightbulb, Target, Briefcase, Layers, Globe, Music, Camera, Dumbbell } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createProject, updateProject, deleteProject } from "@/app/projects/actions";
 
@@ -12,10 +13,19 @@ const COLORS = [
   "#06b6d4", "#3b82f6",
 ];
 
-const ICONS = [
-  "FolderKanban", "Rocket", "Code2", "BookOpen",
-  "Lightbulb", "Target", "Briefcase", "Layers",
-  "Globe", "Music", "Camera", "Dumbbell",
+const ICONS: { name: string; Icon: LucideIcon }[] = [
+  { name: "FolderKanban", Icon: FolderKanban },
+  { name: "Rocket",       Icon: Rocket },
+  { name: "Code2",        Icon: Code2 },
+  { name: "BookOpen",     Icon: BookOpen },
+  { name: "Lightbulb",    Icon: Lightbulb },
+  { name: "Target",       Icon: Target },
+  { name: "Briefcase",    Icon: Briefcase },
+  { name: "Layers",       Icon: Layers },
+  { name: "Globe",        Icon: Globe },
+  { name: "Music",        Icon: Music },
+  { name: "Camera",       Icon: Camera },
+  { name: "Dumbbell",     Icon: Dumbbell },
 ];
 
 type ProjectData = {
@@ -137,7 +147,7 @@ export function ProjectForm({ project }: { project?: ProjectData }) {
       <div>
         <p className={labelCls}>Icon</p>
         <div className="flex flex-wrap gap-2">
-          {ICONS.map((ic) => (
+          {ICONS.map(({ name: ic, Icon }) => (
             <button
               key={ic}
               type="button"
@@ -150,8 +160,7 @@ export function ProjectForm({ project }: { project?: ProjectData }) {
               }}
               aria-label={ic}
             >
-              {/* Inline dynamic icon via CSS class trick — use data attr for SSR safety */}
-              <span className="text-xs font-mono leading-none">{ic.slice(0, 2)}</span>
+              <Icon className="size-4" />
             </button>
           ))}
         </div>
