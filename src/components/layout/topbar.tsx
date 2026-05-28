@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, Plus, Search } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { VoiceCommandBar } from "@/components/voice/voice-command-bar";
 import { formatDate } from "@/lib/utils";
 
 function greeting(date: Date) {
@@ -48,10 +49,7 @@ export function Topbar({
               className="h-9 w-full min-w-[220px] rounded-lg border border-line bg-surface pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-brand/30"
             />
           </div>
-          <Button size="sm" className="shrink-0">
-            <Plus />
-            <span className="hidden sm:inline">Quick Capture</span>
-          </Button>
+          <VoiceCommandBar className="shrink-0" />
           <Button
             variant="outline"
             size="icon"

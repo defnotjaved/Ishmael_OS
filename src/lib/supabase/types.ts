@@ -68,6 +68,7 @@ type TaskRow = {
   owner_id: string;
   goal_id: string | null;
   milestone_id: string | null;
+  project_id: string | null;
   title: string;
   status: "todo" | "in_progress" | "done";
   priority: "high" | "medium" | "low";
@@ -155,6 +156,19 @@ type AchievementRow = {
   created_at: string;
 };
 
+type ProjectRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string | null;
+  status: "active" | "paused" | "completed" | "archived";
+  color: string;
+  icon: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 type TableDef<R> = { Row: R; Insert: Partial<R>; Update: Partial<R>; Relationships: [] };
 
 export type Database = {
@@ -174,6 +188,7 @@ export type Database = {
       accounts:          TableDef<AccountRow>;
       transactions:      TableDef<TransactionRow>;
       integrations:      TableDef<IntegrationRow>;
+      projects:          TableDef<ProjectRow>;
     };
     Views: Record<string, never>;
     Functions: {
